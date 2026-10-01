@@ -249,6 +249,15 @@ tbody tr:hover td { background: #faf7ff; }
   transition: transform .2s, box-shadow .2s;
 }
 .wpp-fab:hover { transform: scale(1.1); box-shadow: 0 6px 28px rgba(37,211,102,.6); }
+.instagram-fab {
+  position: fixed; bottom: 94px; right: 24px; z-index: 999;
+  width: 58px; height: 58px; border-radius: 50%;
+  background: linear-gradient(135deg, #feda75 0%, #fa7e1e 28%, #d62976 58%, #962fbf 78%, #4f5bd5 100%);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 20px rgba(214,41,118,.4);
+  transition: transform .2s, box-shadow .2s;
+}
+.instagram-fab:hover { transform: scale(1.1); box-shadow: 0 6px 28px rgba(214,41,118,.65); }
 .contact-pill-ig { border-color: rgba(225,48,108,.4); }
 .contact-pill-ig:hover { border-color: #e1306c; background: rgba(225,48,108,.15); }
 
