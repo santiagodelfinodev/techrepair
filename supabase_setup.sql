@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS productos (
   id          BIGSERIAL PRIMARY KEY,
   nombre      TEXT NOT NULL,
   categoria   TEXT NOT NULL CHECK (categoria IN ('celular', 'accesorio', 'repuesto')),
+  subcategoria TEXT,
   precio      INTEGER NOT NULL DEFAULT 0,
   stock       INTEGER NOT NULL DEFAULT 0,
   min_stock   INTEGER NOT NULL DEFAULT 2,
@@ -20,9 +21,41 @@ CREATE TABLE IF NOT EXISTS productos (
 CREATE TABLE IF NOT EXISTS reparaciones (
   id          BIGSERIAL PRIMARY KEY,
   nombre      TEXT NOT NULL,
+  categoria   TEXT NOT NULL DEFAULT 'modulos',
   precio      INTEGER NOT NULL DEFAULT 0,
   disponible  BOOLEAN NOT NULL DEFAULT true,
   created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS trabajos (
+  id BIGSERIAL PRIMARY KEY,
+  cliente TEXT NOT NULL,
+  equipo TEXT,
+  reparacion TEXT NOT NULL,
+  fecha DATE NOT NULL DEFAULT CURRENT_DATE,
+  repuesto TEXT,
+  precio_cobrado INTEGER NOT NULL DEFAULT 0,
+  costo_repuesto INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS clientes (
+  id BIGSERIAL PRIMARY KEY,
+  nombre TEXT NOT NULL,
+  telefono TEXT,
+  localidad TEXT,
+  notas TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ventas (
+  id BIGSERIAL PRIMARY KEY,
+  categoria TEXT NOT NULL CHECK (categoria IN ('celular', 'accesorio')),
+  producto TEXT NOT NULL,
+  fecha DATE NOT NULL DEFAULT CURRENT_DATE,
+  precio_venta INTEGER NOT NULL DEFAULT 0,
+  costo_compra INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ── Datos de ejemplo ───────────────────────────────────────────
@@ -45,12 +78,28 @@ INSERT INTO reparaciones (nombre, precio) VALUES
 -- Lectura pública (cualquiera puede ver productos/servicios)
 ALTER TABLE productos    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reparaciones ENABLE ROW LEVEL SECURITY;
+ALTER TABLE trabajos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clientes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ventas ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "lectura_publica_productos"
   ON productos FOR SELECT USING (true);
 
 CREATE POLICY "lectura_publica_reparaciones"
   ON reparaciones FOR SELECT USING (true);
+
+CREATE POLICY "admin_select_trabajos" ON trabajos FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "admin_insert_trabajos" ON trabajos FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "admin_update_trabajos" ON trabajos FOR UPDATE USING (auth.role() = 'authenticated');
+CREATE POLICY "admin_delete_trabajos" ON trabajos FOR DELETE USING (auth.role() = 'authenticated');
+CREATE POLICY "admin_select_clientes" ON clientes FOR SELECT TO authenticated USING (true);
+CREATE POLICY "admin_insert_clientes" ON clientes FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "admin_update_clientes" ON clientes FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "admin_delete_clientes" ON clientes FOR DELETE TO authenticated USING (true);
+CREATE POLICY "admin_select_ventas" ON ventas FOR SELECT TO authenticated USING (true);
+CREATE POLICY "admin_insert_ventas" ON ventas FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "admin_update_ventas" ON ventas FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "admin_delete_ventas" ON ventas FOR DELETE TO authenticated USING (true);
 
 -- Escritura solo para usuarios autenticados (el admin)
 CREATE POLICY "admin_insert_productos"

@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { supabase } from '../supabase.js'
 
 const SERVICIOS = [
   {
@@ -49,21 +50,35 @@ const SERVICIOS = [
       { cal: 'Eliminación de virus', desc: 'Limpieza de malware y apps maliciosas.' },
     ],
   },
-  {
-    icon: '🛡️',
-    titulo: 'Vidrios y accesorios',
-    desc: 'Templados, fundas y más para tu equipo',
-    detalle: [
-      { cal: 'Vidrios templados', desc: 'Protección de pantalla con colocación incluida.' },
-      { cal: 'Fundas', desc: 'Variedad de modelos y colores para tu modelo.' },
-      { cal: 'Cargadores y cables', desc: 'Accesorios de carga de alta calidad para todos los dispositivos.' },
-      { cal: 'Accesorios varios', desc: 'Cables, cargadores, auriculares y más.' },
-    ],
-  },
 ]
 
 export default function PublicPage({ onLoginClick }) {
   const [abierto, setAbierto] = useState(null)
+  const [vista, setVista] = useState(() => window.location.hash.replace('#', '') || 'inicio')
+  const [productos, setProductos] = useState([])
+
+  useEffect(() => {
+    const syncVista = () => setVista(window.location.hash.replace('#', '') || 'inicio')
+    window.addEventListener('hashchange', syncVista)
+    supabase
+      .from('productos')
+      .select('id, nombre, categoria, subcategoria, precio, stock, imagen_url')
+      .eq('activo', true)
+      .in('categoria', ['celular', 'accesorio'])
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setProductos(data || []))
+    return () => window.removeEventListener('hashchange', syncVista)
+  }, [])
+
+  const celulares = productos.filter(p => p.categoria === 'celular')
+  const accesorios = productos.filter(p => p.categoria === 'accesorio')
+
+  if (vista === 'celulares') {
+    return <CatalogPage title="Celulares en venta" icon={null} items={celulares} current="celulares" onLoginClick={onLoginClick} />
+  }
+  if (vista === 'accesorios') {
+    return <CatalogPage title="Accesorios" icon="🎧" items={accesorios} accessoryFolders current="accesorios" onLoginClick={onLoginClick} />
+  }
 
   return (
     <div className="public-page">
@@ -77,14 +92,17 @@ export default function PublicPage({ onLoginClick }) {
           </span>
         </div>
         <div className="nav-links">
-          <a href="#servicios">Servicios</a>
-          <a href="#contacto">Contacto</a>
+          <a className={vista === 'inicio' ? 'active' : ''} href="#inicio">Inicio</a>
+          <a className={vista === 'servicios' ? 'active' : ''} href="#servicios">Servicio Técnico</a>
+          <a className={vista === 'celulares' ? 'active' : ''} href="#celulares">Celulares</a>
+          <a className={vista === 'accesorios' ? 'active' : ''} href="#accesorios">Accesorios</a>
+          <a className={vista === 'contacto' ? 'active' : ''} href="#contacto">Contacto</a>
           <button className="btn btn-ghost btn-sm" onClick={onLoginClick}>Admin</button>
         </div>
       </nav>
 
-      {/* Hero */}
-      <div className="hero">
+      {/* Inicio */}
+      {vista === 'inicio' && <div className="hero">
         <img src="/logo.png" alt="Tech Repair" style={{ width: 100, height: 100, objectFit: 'contain', marginBottom: 24 }} />
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
@@ -93,13 +111,19 @@ export default function PublicPage({ onLoginClick }) {
         </div>
 
         <h1>
-          Servicio Técnico<br />
-          <span className="grad-text">Especializado</span>
+          Tecnología para vos<br />
+          <span className="grad-text">Celulares · Accesorios · Reparaciones</span>
         </h1>
         <p>
-          Reparación profesional de celulares, venta de accesorios y equipos.
-          Diagnóstico sin cargo y garantía en todos los trabajos.
+          Vendemos celulares y accesorios, y también cuidamos tus equipos con
+          servicio técnico especializado.
         </p>
+
+        <div className="hero-actions">
+          <a href="#celulares" className="hero-action hero-action-primary">📱 Ver celulares</a>
+          <a href="#accesorios" className="hero-action">🎧 Ver accesorios</a>
+          <a href="#servicios" className="hero-action">🔧 Servicio técnico</a>
+        </div>
 
         <div className="pills">
           <div className="pill">✅ Presupuesto sin cargo</div>
@@ -107,11 +131,13 @@ export default function PublicPage({ onLoginClick }) {
           <div className="pill">🏆 Repuestos de calidad</div>
           <div className="pill">🔒 Seguridad de tu equipo</div>
         </div>
-      </div>
+      </div>}
 
-      {/* Servicios */}
+      {/* Servicio Técnico */}
+      {vista === 'servicios' && <>
       <section id="servicios" style={{ maxWidth: 780, margin: '0 auto', padding: '0 24px 80px' }}>
-        <h2 className="section-title">¿Qué hacemos?</h2>
+        <h2 className="section-title">Servicio Técnico</h2>
+        <div className="service-highlight">✅ Presupuesto sin cargo</div>
         <div className="accordion">
           {SERVICIOS.map((s, i) => (
             <div key={i} className={`acord-item${abierto === i ? ' open' : ''}`}>
@@ -138,6 +164,18 @@ export default function PublicPage({ onLoginClick }) {
           ))}
         </div>
       </section>
+
+      <div className="quote-cta">
+        <p>¿Necesitás reparar tu equipo?</p>
+        <a
+          href="https://wa.me/5493585743616?text=Buenas%2C%20quer%C3%ADa%20consultar%20por%20un%20arreglo."
+          className="quote-button"
+          target="_blank"
+          rel="noopener"
+        >
+          💬 Pedir presupuesto por WhatsApp
+        </a>
+      </div>
 
       {/* Galería */}
       <section id="galeria" style={{ maxWidth: 900, margin: '0 auto', padding: '0 24px 80px' }}>
@@ -169,8 +207,10 @@ export default function PublicPage({ onLoginClick }) {
           </a>
         </div>
       </section>
+      </>}
 
       {/* Contacto */}
+      {vista === 'contacto' && <>
       <section className="contact-section" id="contacto">
         <h2 className="section-title">Contacto</h2>
         <p style={{ color: 'rgba(255,255,255,.5)', fontSize: 14, marginBottom: 28 }}>
@@ -190,9 +230,10 @@ export default function PublicPage({ onLoginClick }) {
           <span className="contact-pill" style={{ cursor: 'default' }}>📍 Alejandro Roca, Córdoba</span>
         </div>
       </section>
+      </>}
 
       {/* Mapa */}
-      <section style={{ maxWidth: 780, margin: '0 auto', padding: '0 24px 60px' }}>
+      {vista === 'contacto' && <section style={{ maxWidth: 780, margin: '0 auto', padding: '0 24px 60px' }}>
         <h2 className="section-title">¿Dónde estamos?</h2>
         <div className="map-wrap">
           <iframe
@@ -205,7 +246,7 @@ export default function PublicPage({ onLoginClick }) {
             loading="lazy"
           />
         </div>
-      </section>
+      </section>}
 
       {/* Botón flotante WhatsApp */}
       <a
@@ -244,4 +285,92 @@ export default function PublicPage({ onLoginClick }) {
 
     </div>
   )
+}
+
+function CatalogPage({ title, icon, items, accessoryFolders, current, onLoginClick }) {
+  const [folder, setFolder] = useState('todos')
+  const folders = [
+    ['todos', 'Todos'], ['cargadores', 'Cargadores'], ['fundas', 'Fundas'],
+    ['cables', 'Cables'], ['extras', 'Extras'],
+  ]
+  const visible = accessoryFolders && folder !== 'todos'
+    ? items.filter(item => (item.subcategoria || 'extras') === folder)
+    : items
+
+  return (
+    <div className="public-page catalog-page">
+      <nav className="public-nav">
+        <a href="#inicio" className="catalog-brand"><img src="/logo.png" alt="Tech Repair" /><span>Tech <span className="grad-text">Repair</span></span></a>
+        <div className="nav-links">
+          <a className={current === 'inicio' ? 'active' : ''} href="#inicio">Inicio</a>
+          <a href="#servicios">Servicio Técnico</a>
+          <a className={current === 'celulares' ? 'active' : ''} href="#celulares">Celulares</a>
+          <a className={current === 'accesorios' ? 'active' : ''} href="#accesorios">Accesorios</a>
+          <a href="#contacto">Contacto</a>
+          <button className="btn btn-ghost btn-sm" onClick={onLoginClick}>Admin</button>
+        </div>
+      </nav>
+      <main className="catalog-page-content">
+        <h1 className="catalog-page-title">{icon} {title}</h1>
+        {accessoryFolders && (
+          <div className="catalog-folders">
+            {folders.map(([value, label]) => (
+              <button key={value} className={`catalog-folder${folder === value ? ' active' : ''}`} onClick={() => setFolder(value)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+        <CatalogSection items={visible} emptyText="Todavía no hay productos cargados en esta categoría." />
+      </main>
+    </div>
+  )
+}
+
+function CatalogSection({ id, title, icon, items, emptyText, accessoryFolders = false }) {
+  const [folder, setFolder] = useState('todos')
+  const folders = [['todos', 'Todos'], ['cargadores', 'Cargadores'], ['fundas', 'Fundas'], ['cables', 'Cables'], ['extras', 'Extras']]
+  const visibleItems = accessoryFolders && folder !== 'todos'
+    ? items.filter(item => (item.subcategoria || 'extras') === folder)
+    : items
+  return (
+    <section id={id} className="catalog-section">
+      {title && <h2 className="section-title">{icon} {title}</h2>}
+      {accessoryFolders && (
+        <div className="catalog-folders">
+          {folders.map(([value, label]) => (
+            <button key={value} className={`catalog-folder${folder === value ? ' active' : ''}`} onClick={() => setFolder(value)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+      {visibleItems.length === 0 ? (
+        <p className="catalog-empty">{emptyText}</p>
+      ) : (
+        <div className="catalog-grid">
+          {visibleItems.map(producto => (
+            <article key={producto.id} className="catalog-card">
+              <div className="catalog-image-wrap">
+                {producto.imagen_url
+                  ? <img src={producto.imagen_url} alt={producto.nombre} className="catalog-image" />
+                  : <span className="catalog-placeholder">Sin foto</span>}
+              </div>
+              <div className="catalog-card-body">
+                <h3>{producto.nombre}</h3>
+                <strong>${Number(producto.precio || 0).toLocaleString('es-AR')}</strong>
+                <span className={producto.stock > 0 ? 'catalog-stock' : 'catalog-out-of-stock'}>
+                  {producto.stock > 0 ? 'Disponible' : 'Consultar disponibilidad'}
+                </span>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function AppleUsIcon() {
+  return <span className="apple-us-icon" aria-label="Apple Estados Unidos"><svg viewBox="0 0 40 40" width="42" height="42" aria-hidden="true"><path fill="currentColor" d="M25.5 8.4c1.7-2.1 1.5-4.1 1.4-4.9-1.7.1-3.7 1.1-4.8 2.5-1 1.2-1.7 3.1-1.5 4.8 1.8.1 3.5-.9 4.9-2.4ZM32.7 22c0-4.2 3.4-6.3 3.6-6.4-1.9-2.8-4.9-3.2-5.9-3.2-2.5-.3-4.9 1.5-6.1 1.5-1.3 0-3.2-1.5-5.3-1.5-2.7 0-5.2 1.6-6.6 4.1-2.9 5-.7 12.4 2.1 16.4 1.4 2 3 4.2 5.2 4.1 2.1-.1 2.9-1.3 5.4-1.3 2.5 0 3.2 1.3 5.4 1.2 2.3 0 3.7-2 5.1-4.1 1.6-2.3 2.2-4.5 2.3-4.6-.1 0-5.2-2-5.2-6.2Z"/></svg><span>🇺🇸</span></span>
 }

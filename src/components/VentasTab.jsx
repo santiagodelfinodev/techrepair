@@ -1,0 +1,18 @@
+import { useState } from 'react'
+import { supabase } from '../supabase.js'
+
+const EMPTY = { categoria: 'celular', producto: '', fecha: new Date().toISOString().slice(0, 10), precio_venta: '', costo_compra: '' }
+export default function VentasTab({ ventas, onRefresh }) {
+  const [form, setForm] = useState(EMPTY); const [modal, setModal] = useState(false); const [error, setError] = useState('')
+  async function save() {
+    if (!form.producto.trim()) { setError('El producto es obligatorio'); return }
+    const { error: e } = await supabase.from('ventas').insert({ ...form, precio_venta: Number(form.precio_venta) || 0, costo_compra: Number(form.costo_compra) || 0 })
+    if (e) { setError(e.message); return } setModal(false); onRefresh()
+  }
+  async function remove(id) { if (!confirm('¿Eliminar esta venta?')) return; await supabase.from('ventas').delete().eq('id', id); onRefresh() }
+  return <div><div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}><div><h2 style={{ fontWeight: 800, fontSize: 18 }}>Ventas ({ventas.length})</h2><p style={{ color: '#6b6b8a', fontSize: 13 }}>Registrá cada venta para calcular ganancias</p></div><button className="btn btn-primary" onClick={() => { setForm(EMPTY); setError(''); setModal(true) }}>+ Registrar venta</button></div>
+    <div className="table-wrap" style={{ background: '#fff' }}><table><thead><tr><th>Fecha</th><th>Categoría</th><th>Producto</th><th>Venta</th><th>Costo</th><th>Ganancia</th><th></th></tr></thead><tbody>{ventas.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: 32, color: '#6b6b8a' }}>Todavía no hay ventas</td></tr>}{ventas.map(v => <tr key={v.id}><td>{new Date(`${v.fecha}T12:00:00`).toLocaleDateString('es-AR')}</td><td>{v.categoria === 'celular' ? 'Celular' : 'Accesorio'}</td><td style={{ fontWeight: 700 }}>{v.producto}</td><td>${Number(v.precio_venta).toLocaleString('es-AR')}</td><td>${Number(v.costo_compra).toLocaleString('es-AR')}</td><td style={{ color: '#15803d', fontWeight: 800 }}>${(Number(v.precio_venta) - Number(v.costo_compra)).toLocaleString('es-AR')}</td><td><button className="btn btn-danger btn-sm" onClick={() => remove(v.id)}>✕</button></td></tr>)}</tbody></table></div>
+    {modal && <div className="overlay" onClick={() => setModal(false)}><div className="modal" onClick={e => e.stopPropagation()}><h3>Registrar venta</h3><div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}><div><label className="label">Categoría</label><select className="input" value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))}><option value="celular">Celular</option><option value="accesorio">Accesorio</option></select></div><Field label="Producto" value={form.producto} onChange={v => setForm(f => ({ ...f, producto: v }))} /><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}><Field label="Precio de venta" type="number" value={form.precio_venta} onChange={v => setForm(f => ({ ...f, precio_venta: v }))} /><Field label="Costo de compra" type="number" value={form.costo_compra} onChange={v => setForm(f => ({ ...f, costo_compra: v }))} /></div><Field label="Fecha" type="date" value={form.fecha} onChange={v => setForm(f => ({ ...f, fecha: v }))} />{error && <div className="alert alert-error">{error}</div>}<button className="btn btn-primary" onClick={save}>Guardar venta</button><button className="btn btn-secondary" onClick={() => setModal(false)}>Cancelar</button></div></div></div>}
+  </div>
+}
+function Field({ label, value, onChange, type = 'text' }) { return <div><label className="label">{label}</label><input className="input" type={type} value={value} onChange={e => onChange(e.target.value)} /></div> }

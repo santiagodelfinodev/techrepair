@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../supabase.js'
 
-const EMPTY = { nombre: '', precio: '', disponible: true }
+const EMPTY = { nombre: '', categoria: 'modulos', precio: '', disponible: true }
 
 export default function ReparacionesTab({ reparaciones, onRefresh }) {
   const [modal, setModal]   = useState(false)
@@ -9,6 +9,7 @@ export default function ReparacionesTab({ reparaciones, onRefresh }) {
   const [editId, setEditId] = useState(null)
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
+  const [folder, setFolder] = useState(null)
 
   function openAdd() { setForm(EMPTY); setEditId(null); setError(''); setModal(true) }
   function openEdit(r) {
@@ -19,7 +20,7 @@ export default function ReparacionesTab({ reparaciones, onRefresh }) {
   async function handleSave() {
     if (!form.nombre.trim()) { setError('El nombre es obligatorio'); return }
     setSaving(true); setError('')
-    const payload = { nombre: form.nombre.trim(), precio: Number(form.precio) || 0, disponible: form.disponible }
+    const payload = { nombre: form.nombre.trim(), categoria: form.categoria, precio: Number(form.precio) || 0, disponible: form.disponible }
     const { error } = editId
       ? await supabase.from('reparaciones').update(payload).eq('id', editId)
       : await supabase.from('reparaciones').insert(payload)
@@ -42,9 +43,12 @@ export default function ReparacionesTab({ reparaciones, onRefresh }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h2 style={{ fontWeight: 800, fontSize: 18 }}>Servicios de reparación ({reparaciones.length})</h2>
-        <button className="btn btn-primary" onClick={openAdd}>+ Agregar servicio</button>
+        <div><h2 style={{ fontWeight: 800, fontSize: 18 }}>Reparaciones</h2><p style={{ color: '#6b6b8a', fontSize: 13 }}>Elegí una carpeta para ver sus precios</p></div>
+        <button className="btn btn-primary" onClick={openAdd}>+ Agregar reparación</button>
       </div>
+
+      {!folder ? <div className="repair-folders">{[['modulos','📱','Módulos'],['baterias','🔋','Baterías'],['tapas','📲','Tapas'],['vidrio_camara','📷','Vidrio de cámara']].map(([id, icon, label]) => <button key={id} className="repair-folder" onClick={() => setFolder(id)}><span>{icon}</span><strong>{label}</strong><small>{reparaciones.filter(r => (r.categoria || 'modulos') === id).length} precios</small></button>)}</div> : <>
+        <button className="btn btn-secondary btn-sm" onClick={() => setFolder(null)} style={{ marginBottom: 14 }}>← Todas las carpetas</button>
 
       <div className="table-wrap" style={{ background: '#fff' }}>
         <table>
@@ -57,10 +61,10 @@ export default function ReparacionesTab({ reparaciones, onRefresh }) {
             </tr>
           </thead>
           <tbody>
-            {reparaciones.length === 0 && (
+            {reparaciones.filter(r => (r.categoria || 'modulos') === folder).length === 0 && (
               <tr><td colSpan={4} style={{ textAlign: 'center', color: '#6b6b8a', padding: 32 }}>No hay servicios</td></tr>
             )}
-            {reparaciones.map(r => (
+            {reparaciones.filter(r => (r.categoria || 'modulos') === folder).map(r => (
               <tr key={r.id}>
                 <td style={{ fontWeight: 700 }}>{r.nombre}</td>
                 <td style={{ fontWeight: 700, color: '#7B2FBE' }}>${r.precio.toLocaleString('es-AR')}</td>
@@ -86,13 +90,17 @@ export default function ReparacionesTab({ reparaciones, onRefresh }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </div></>}
 
       {modal && (
         <div className="overlay" onClick={() => setModal(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h3>{editId ? 'Editar servicio' : 'Nuevo servicio'}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label className="label">Carpeta</label>
+                <select className="input" value={form.categoria || 'modulos'} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))}><option value="modulos">Módulos</option><option value="baterias">Baterías</option><option value="tapas">Tapas</option><option value="vidrio_camara">Vidrio de cámara</option></select>
+              </div>
               <div>
                 <label className="label">Nombre del servicio</label>
                 <input className="input" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />

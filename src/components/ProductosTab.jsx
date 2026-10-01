@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../supabase.js'
 
-const EMPTY = { nombre: '', categoria: 'celular', precio: '', stock: '', min_stock: '', imagen_url: '' }
+const EMPTY = { nombre: '', categoria: 'celular', subcategoria: 'extras', precio: '', stock: '', min_stock: '', imagen_url: '' }
 
 export default function ProductosTab({ productos, onRefresh }) {
   const [modal, setModal]     = useState(false)
@@ -10,6 +10,7 @@ export default function ProductosTab({ productos, onRefresh }) {
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState('')
   const [search, setSearch]   = useState('')
+  const [filtro, setFiltro]   = useState('todos')
 
   function openAdd() {
     setForm(EMPTY); setEditId(null); setError(''); setModal(true)
@@ -26,6 +27,7 @@ export default function ProductosTab({ productos, onRefresh }) {
     const payload = {
       nombre:      form.nombre.trim(),
       categoria:   form.categoria,
+      subcategoria: form.categoria === 'accesorio' ? form.subcategoria : null,
       precio:      Number(form.precio) || 0,
       stock:       Number(form.stock) || 0,
       min_stock:   Number(form.min_stock) || 0,
@@ -55,7 +57,12 @@ export default function ProductosTab({ productos, onRefresh }) {
   const list = productos.filter(p =>
     p.nombre.toLowerCase().includes(search.toLowerCase()) ||
     p.categoria.toLowerCase().includes(search.toLowerCase())
-  )
+  ).filter(p => {
+    if (filtro === 'todos') return true
+    if (filtro === 'celular') return p.categoria === 'celular'
+    if (filtro === 'vidrios') return p.subcategoria === 'vidrios' || p.subcategoria === 'vidrio' || p.nombre.toLowerCase().includes('vidrio')
+    return p.categoria === 'accesorio' && (p.subcategoria || 'extras') === filtro
+  })
 
   return (
     <div>
@@ -64,6 +71,15 @@ export default function ProductosTab({ productos, onRefresh }) {
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <input className="input" style={{ width: 200 }} placeholder="🔍 Buscar…"
             value={search} onChange={e => setSearch(e.target.value)} />
+          <select className="input" style={{ width: 170 }} value={filtro} onChange={e => setFiltro(e.target.value)}>
+            <option value="todos">Todos</option>
+            <option value="celular">Celulares</option>
+            <option value="cargadores">Cargadores</option>
+            <option value="vidrios">Vidrios templados</option>
+            <option value="fundas">Fundas</option>
+            <option value="cables">Cables</option>
+            <option value="extras">Extras</option>
+          </select>
           <button className="btn btn-primary" onClick={openAdd}>+ Agregar</button>
         </div>
       </div>
@@ -145,6 +161,18 @@ export default function ProductosTab({ productos, onRefresh }) {
                   <option value="repuesto">Repuesto</option>
                 </select>
               </div>
+              {form.categoria === 'accesorio' && (
+                <div>
+                  <label className="label">Tipo de accesorio</label>
+                  <select className="input" value={form.subcategoria || 'extras'} onChange={e => setForm(f => ({ ...f, subcategoria: e.target.value }))}>
+                    <option value="cargadores">Cargadores</option>
+                    <option value="vidrios">Vidrios templados</option>
+                    <option value="fundas">Fundas</option>
+                    <option value="cables">Cables</option>
+                    <option value="extras">Extras</option>
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="label">Precio (ARS)</label>
                 <input className="input" type="number" min="0" value={form.precio}

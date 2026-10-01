@@ -3,21 +3,34 @@ import { supabase } from '../supabase.js'
 import ProductosTab from './ProductosTab.jsx'
 import ReparacionesTab from './ReparacionesTab.jsx'
 import StockBajoTab from './StockBajoTab.jsx'
+import TrabajosTab from './TrabajosTab.jsx'
+import ClientesTab from './ClientesTab.jsx'
+import VentasTab from './VentasTab.jsx'
+import GananciasTab from './GananciasTab.jsx'
 
 export default function AdminPanel({ onLogout }) {
-  const [tab, setTab] = useState('dashboard')
+  const [tab, setTab] = useState('productos')
   const [productos, setProductos]       = useState([])
   const [reparaciones, setReparaciones] = useState([])
+  const [trabajos, setTrabajos] = useState([])
+  const [clientes, setClientes] = useState([])
+  const [ventas, setVentas] = useState([])
   const [loading, setLoading] = useState(true)
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
-    const [{ data: prods }, { data: reps }] = await Promise.all([
+    const [{ data: prods }, { data: reps }, { data: works }, { data: people }, { data: sales }] = await Promise.all([
       supabase.from('productos').select('*').order('created_at'),
       supabase.from('reparaciones').select('*').order('created_at'),
+      supabase.from('trabajos').select('*').order('fecha', { ascending: false }),
+      supabase.from('clientes').select('*').order('nombre'),
+      supabase.from('ventas').select('*').order('fecha', { ascending: false }),
     ])
     setProductos(prods || [])
     setReparaciones(reps || [])
+    setTrabajos(works || [])
+    setClientes(people || [])
+    setVentas(sales || [])
     setLoading(false)
   }, [])
 
@@ -27,10 +40,12 @@ export default function AdminPanel({ onLogout }) {
   const totalInv  = productos.reduce((a, p) => a + p.precio * p.stock, 0)
 
   const TABS = [
-    { id: 'dashboard',    label: '📊 Dashboard' },
     { id: 'productos',    label: '📦 Productos' },
     { id: 'reparaciones', label: '🔧 Reparaciones' },
-    { id: 'stock',        label: `⚠️ Stock bajo${stockBajo.length ? ` (${stockBajo.length})` : ''}` },
+    { id: 'trabajos', label: '🧾 Servicio técnico' },
+    { id: 'clientes', label: '👥 Clientes' },
+    { id: 'ventas', label: '💰 Ventas' },
+    { id: 'ganancias', label: '📈 Ganancias' },
   ]
 
   return (
@@ -38,11 +53,11 @@ export default function AdminPanel({ onLogout }) {
       {/* Topbar */}
       <div className="admin-topbar">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: 8,
-            background: 'linear-gradient(135deg,#c44dff,#4A90E2)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16
-          }}>🔧</div>
+          <img
+            src="/logo.png"
+            alt="Tech Repair"
+            style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'contain', background: '#fff' }}
+          />
           <span style={{ color: '#fff', fontWeight: 900, fontSize: 15 }}>
             Tech Repair <span style={{ color: '#c44dff', fontSize: 11, fontWeight: 700 }}>ADMIN</span>
           </span>
@@ -69,24 +84,16 @@ export default function AdminPanel({ onLogout }) {
           </div>
         ) : (
           <>
-            {tab === 'dashboard' && (
-              <Dashboard
-                productos={productos}
-                reparaciones={reparaciones}
-                stockBajo={stockBajo}
-                totalInv={totalInv}
-                onTabChange={setTab}
-              />
-            )}
             {tab === 'productos' && (
               <ProductosTab productos={productos} onRefresh={fetchAll} />
             )}
             {tab === 'reparaciones' && (
               <ReparacionesTab reparaciones={reparaciones} onRefresh={fetchAll} />
             )}
-            {tab === 'stock' && (
-              <StockBajoTab items={stockBajo} onRefresh={fetchAll} />
-            )}
+            {tab === 'trabajos' && <TrabajosTab trabajos={trabajos} clientes={clientes} onRefresh={fetchAll} />}
+            {tab === 'clientes' && <ClientesTab clientes={clientes} onRefresh={fetchAll} />}
+            {tab === 'ventas' && <VentasTab ventas={ventas} onRefresh={fetchAll} />}
+            {tab === 'ganancias' && <GananciasTab trabajos={trabajos} ventas={ventas} />}
           </>
         )}
       </div>
