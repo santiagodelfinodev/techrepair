@@ -186,9 +186,9 @@ export default function ProductosTab({ productos, onRefresh }) {
 
       {modal && (
         <div className="overlay" onClick={closeModal}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+          <div className="modal product-modal" onClick={e => e.stopPropagation()}>
             <h3>{editId ? 'Editar producto' : 'Nuevo producto'}</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div>
                 <label className="label">Nombre</label>
                 <input className="input" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
@@ -254,7 +254,7 @@ export default function ProductosTab({ productos, onRefresh }) {
                 </div>
               </div>
               {error && <div className="alert alert-error">{error}</div>}
-              <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+              <div className="product-modal-actions" style={{ display: 'flex', gap: 10, marginTop: 4 }}>
                 <button className="btn btn-primary" style={{ flex: 1, padding: 12 }} onClick={handleSave} disabled={saving}>
                   {saving ? 'Guardando…' : (editId ? 'Guardar cambios' : 'Agregar producto')}
                 </button>
