@@ -62,7 +62,7 @@ export default function PublicPage({ onLoginClick }) {
     window.addEventListener('hashchange', syncVista)
     supabase
       .from('productos')
-      .select('id, nombre, categoria, subcategoria, precio, moneda, stock, imagen_url')
+      .select('id, nombre, categoria, subcategoria, precio, moneda, stock, imagen_url, imagenes_urls')
       .eq('activo', true)
       .in('categoria', ['celular', 'accesorio'])
       .order('created_at', { ascending: false })
@@ -351,9 +351,9 @@ function CatalogSection({ id, title, icon, items, emptyText, accessoryFolders = 
         <div className="catalog-grid">
           {visibleItems.map(producto => (
             <article key={producto.id} className="catalog-card">
-              <div className="catalog-image-wrap">
-                {producto.imagen_url
-                  ? <img src={producto.imagen_url} alt={producto.nombre} className="catalog-image" />
+              <div className="catalog-image-wrap" style={{ display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory' }}>
+                {(producto.imagenes_urls?.length || producto.imagen_url)
+                  ? (producto.imagenes_urls?.length ? producto.imagenes_urls : [producto.imagen_url]).map((url, index) => <img key={url} src={url} alt={`${producto.nombre} · Foto ${index + 1}`} className="catalog-image" style={{ flex: '0 0 100%', width: '100%', scrollSnapAlign: 'start' }} />)
                   : <span className="catalog-placeholder">Sin foto</span>}
               </div>
               <div className="catalog-card-body">

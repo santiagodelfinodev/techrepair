@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../supabase.js'
 
-const EMPTY = { nombre: '', categoria: 'celular', subcategoria: 'extras', precio: '', moneda: 'ARS', costo: '', costo_moneda: 'ARS', stock: '', min_stock: '', imagen_url: '' }
+const EMPTY = { nombre: '', categoria: 'celular', subcategoria: 'extras', precio: '', moneda: 'ARS', costo: '', costo_moneda: 'ARS', stock: '', min_stock: '', imagen_url: '', imagenes_urls: [] }
 
 export default function ProductosTab({ productos, onRefresh }) {
   const [modal, setModal]     = useState(false)
@@ -23,7 +23,30 @@ export default function ProductosTab({ productos, onRefresh }) {
     setForm({ ...EMPTY, ...p, nombre: `${p.nombre} (copia)`, precio: String(p.precio ?? ''), costo: String(p.costo ?? ''), stock: String(p.stock ?? ''), min_stock: String(p.min_stock ?? '') })
     setEditId(null); setError(''); setModal(true)
   }
-  function closeModal() { setModal(false) }
+  function closeModal() { if (!saving) setModal(false) }
+
+  async function uploadImages(event) {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (!files.length) return;
+    if (files.some(file => !['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type) || file.size > 5 * 1024 * 1024)) {
+      setError('Usá JPG, PNG, WebP o GIF de hasta 5 MB por foto'); return;
+    }
+    setSaving(true); setError('');
+    try {
+      for (const file of files) {
+        const path = `${crypto.randomUUID()}.${file.name.split('.').pop()}`;
+        const { error } = await supabase.storage.from('product-images').upload(path, file);
+        if (error) throw error;
+        const { data } = supabase.storage.from('product-images').getPublicUrl(path);
+        setForm(f => {
+          const images = [...(f.imagenes_urls?.length ? f.imagenes_urls : f.imagen_url ? [f.imagen_url] : []), data.publicUrl];
+          return { ...f, imagenes_urls: images, imagen_url: images[0] };
+        });
+      }
+    } catch (error) { setError(`No se pudieron subir todas las fotos: ${error.message}`) }
+    finally { setSaving(false) }
+  }
 
   async function handleSave() {
     if (!form.nombre.trim()) { setError('El nombre es obligatorio'); return }
@@ -39,6 +62,7 @@ export default function ProductosTab({ productos, onRefresh }) {
       stock:       Number(form.stock) || 0,
       min_stock:   Number(form.min_stock) || 0,
       imagen_url:  form.imagen_url || null,
+      imagenes_urls: form.imagenes_urls?.length ? form.imagenes_urls : form.imagen_url ? [form.imagen_url] : [],
     }
     const { error } = editId
       ? await supabase.from('productos').update(payload).eq('id', editId)
@@ -205,8 +229,11 @@ export default function ProductosTab({ productos, onRefresh }) {
               </div>
               <div>
                 <label className="label">Foto del producto (opcional)</label>
-                <input className="input" type="file" accept="image/*" onChange={async e => { const file = e.target.files?.[0]; if (!file) return; if (file.size > 5 * 1024 * 1024) { setError('La imagen no puede superar 5 MB'); return }; setSaving(true); const path = `${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '')}`; const { error: uploadError } = await supabase.storage.from('product-images').upload(path, file, { upsert: true }); if (uploadError) { setError(`No se pudo subir la imagen: ${uploadError.message}`); setSaving(false); return }; const { data } = supabase.storage.from('product-images').getPublicUrl(path); setForm(f => ({ ...f, imagen_url: data.publicUrl })); setSaving(false) }} />
-                {form.imagen_url && <img src={form.imagen_url} alt="Vista previa" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, marginTop: 8 }} />}
+                <input className="input" type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" disabled={saving} onChange={uploadImages} />
+                <small>Podés seleccionar varias fotos. La primera será la portada.</small>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
+                  {(form.imagenes_urls?.length ? form.imagenes_urls : form.imagen_url ? [form.imagen_url] : []).map((url, index, images) => <div key={url}><img src={url} alt={`Foto ${index + 1}`} style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8 }} /><button className="btn btn-secondary btn-sm" disabled={saving} onClick={() => { const next = images.filter((_, i) => i !== index); setForm(f => ({ ...f, imagenes_urls: next, imagen_url: next[0] || '' })) }}>Quitar</button></div>)}
+                </div>
               </div>
               {error && <div className="alert alert-error">{error}</div>}
               <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
