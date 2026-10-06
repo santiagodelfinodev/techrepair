@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../supabase.js'
 
-const EMPTY = { nombre: '', categoria: 'celular', subcategoria: 'extras', precio: '', moneda: 'ARS', costo: '', costo_moneda: 'ARS', stock: '', min_stock: '', imagen_url: '', imagenes_urls: [] }
+const EMPTY = { nombre: '', categoria: 'celular', subcategoria: 'extras', precio: '', moneda: 'ARS', costo: '', costo_moneda: 'ARS', stock: '', min_stock: '', imagen_url: '', imagenes_urls: [], detalles: { estado: 'nuevo', gb: '', bateria: '', color: '', descripcion: '' } }
 
 export default function ProductosTab({ productos, onRefresh }) {
   const [modal, setModal]     = useState(false)
@@ -50,6 +50,11 @@ export default function ProductosTab({ productos, onRefresh }) {
 
   async function handleSave() {
     if (!form.nombre.trim()) { setError('El nombre es obligatorio'); return }
+    if (form.categoria === 'celular') {
+      if (!['nuevo', 'usado'].includes(form.detalles?.estado)) { setError('Elegí si el celular es nuevo o usado'); return }
+      if (form.detalles.bateria !== '' && form.detalles.bateria != null && (!Number.isFinite(Number(form.detalles.bateria)) || Number(form.detalles.bateria) < 0 || Number(form.detalles.bateria) > 100)) { setError('La batería debe estar entre 0 y 100%'); return }
+      if (form.detalles.gb !== '' && form.detalles.gb != null && (!Number.isFinite(Number(form.detalles.gb)) || Number(form.detalles.gb) <= 0)) { setError('La capacidad debe ser mayor a 0 GB'); return }
+    }
     setSaving(true); setError('')
     const payload = {
       nombre:      form.nombre.trim(),
@@ -63,6 +68,7 @@ export default function ProductosTab({ productos, onRefresh }) {
       min_stock:   Number(form.min_stock) || 0,
       imagen_url:  form.imagen_url || null,
       imagenes_urls: form.imagenes_urls?.length ? form.imagenes_urls : form.imagen_url ? [form.imagen_url] : [],
+      ...(form.categoria === 'celular' ? { detalles: form.detalles } : {}),
     }
     const { error } = editId
       ? await supabase.from('productos').update(payload).eq('id', editId)
@@ -195,6 +201,11 @@ export default function ProductosTab({ productos, onRefresh }) {
                   <option value="repuesto">Repuesto</option>
                 </select>
               </div>
+              {form.categoria === 'celular' && <>
+                <div><label className="label">Condición</label><select className="input" value={form.detalles?.estado || ''} onChange={e => setForm(f => ({ ...f, detalles: { ...f.detalles, estado: e.target.value } }))}><option value="">Elegir condición</option><option value="nuevo">Nuevo</option><option value="usado">Usado</option></select></div>
+                {[['gb', 'Capacidad de almacenamiento (GB)', 'number'], ['bateria', 'Salud de batería (%)', 'number'], ['color', 'Color', 'text']].map(([key, label, type]) => <div key={key}><label className="label">{label}</label><input className="input" type={type} min={key === 'gb' ? 1 : 0} max={key === 'bateria' ? 100 : undefined} value={form.detalles?.[key] ?? ''} onChange={e => setForm(f => ({ ...f, detalles: { ...f.detalles, [key]: e.target.value } }))} /></div>)}
+                <div><label className="label">Descripción y demás datos (garantía, accesorios, estado físico…)</label><textarea className="input" rows={4} value={form.detalles?.descripcion || ''} onChange={e => setForm(f => ({ ...f, detalles: { ...f.detalles, descripcion: e.target.value } }))} /></div>
+              </>}
               {form.categoria === 'accesorio' && (
                 <div>
                   <label className="label">Tipo de accesorio</label>
@@ -228,11 +239,18 @@ export default function ProductosTab({ productos, onRefresh }) {
                 </div>
               </div>
               <div>
-                <label className="label">Foto del producto (opcional)</label>
+                <label className="label">Fotos del producto (opcional)</label>
                 <input className="input" type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" disabled={saving} onChange={uploadImages} />
                 <small>Podés seleccionar varias fotos. La primera será la portada.</small>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
-                  {(form.imagenes_urls?.length ? form.imagenes_urls : form.imagen_url ? [form.imagen_url] : []).map((url, index, images) => <div key={url}><img src={url} alt={`Foto ${index + 1}`} style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8 }} /><button className="btn btn-secondary btn-sm" disabled={saving} onClick={() => { const next = images.filter((_, i) => i !== index); setForm(f => ({ ...f, imagenes_urls: next, imagen_url: next[0] || '' })) }}>Quitar</button></div>)}
+                  {(form.imagenes_urls?.length ? form.imagenes_urls : form.imagen_url ? [form.imagen_url] : []).map((url, index, images) => <div key={url} style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+                    <img src={url} alt={`Foto ${index + 1}`} style={{ width: 90, height: 90, objectFit: 'contain', background: '#fff', border: '1px solid #ddd', borderRadius: 8 }} />
+                    <small>{index === 0 ? '1 · Portada' : `Foto ${index + 1}`}</small>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {[-1, 1].map(delta => <button key={delta} type="button" className="btn btn-secondary btn-sm" aria-label={`${delta < 0 ? 'Adelantar' : 'Retrasar'} foto ${index + 1}`} disabled={saving || index + delta < 0 || index + delta >= images.length} onClick={() => { const next = [...images]; [next[index], next[index + delta]] = [next[index + delta], next[index]]; setForm(f => ({ ...f, imagenes_urls: next, imagen_url: next[0] })) }}>{delta < 0 ? '←' : '→'}</button>)}
+                    </div>
+                    <button type="button" className="btn btn-secondary btn-sm" disabled={saving} onClick={() => { const next = images.filter((_, i) => i !== index); setForm(f => ({ ...f, imagenes_urls: next, imagen_url: next[0] || '' })) }}>Quitar</button>
+                  </div>)}
                 </div>
               </div>
               {error && <div className="alert alert-error">{error}</div>}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../supabase.js'
 
 const SERVICIOS = [
@@ -62,7 +62,7 @@ export default function PublicPage({ onLoginClick }) {
     window.addEventListener('hashchange', syncVista)
     supabase
       .from('productos')
-      .select('id, nombre, categoria, subcategoria, precio, moneda, stock, imagen_url, imagenes_urls')
+      .select('id, nombre, categoria, subcategoria, precio, moneda, stock, imagen_url, imagenes_urls, detalles')
       .eq('activo', true)
       .in('categoria', ['celular', 'accesorio'])
       .order('created_at', { ascending: false })
@@ -288,12 +288,12 @@ export default function PublicPage({ onLoginClick }) {
 }
 
 function CatalogPage({ title, icon, items, accessoryFolders, current, onLoginClick }) {
-  const [folder, setFolder] = useState('todos')
-  const folders = [
+  const [folder, setFolder] = useState(current === 'celulares' ? 'nuevo' : 'todos')
+  const folders = current === 'celulares' ? [['nuevo', 'Nuevos'], ['usado', 'Usados']] : [
     ['todos', 'Todos'], ['cargadores', 'Cargadores'], ['fundas', 'Fundas'],
     ['cables', 'Cables'], ['extras', 'Extras'],
   ]
-  const visible = accessoryFolders && folder !== 'todos'
+  const visible = current === 'celulares' ? items.filter(item => item.detalles?.estado === folder) : accessoryFolders && folder !== 'todos'
     ? items.filter(item => (item.subcategoria || 'extras') === folder)
     : items
 
@@ -312,7 +312,7 @@ function CatalogPage({ title, icon, items, accessoryFolders, current, onLoginCli
       </nav>
       <main className="catalog-page-content">
         <h1 className="catalog-page-title">{icon} {title}</h1>
-        {accessoryFolders && (
+        {(accessoryFolders || current === 'celulares') && (
           <div className="catalog-folders">
             {folders.map(([value, label]) => (
               <button key={value} className={`catalog-folder${folder === value ? ' active' : ''}`} onClick={() => setFolder(value)}>
@@ -328,6 +328,7 @@ function CatalogPage({ title, icon, items, accessoryFolders, current, onLoginCli
 }
 
 function CatalogSection({ id, title, icon, items, emptyText, accessoryFolders = false }) {
+  const [selectedPhone, setSelectedPhone] = useState(null)
   const [folder, setFolder] = useState('todos')
   const folders = [['todos', 'Todos'], ['cargadores', 'Cargadores'], ['fundas', 'Fundas'], ['cables', 'Cables'], ['extras', 'Extras']]
   const visibleItems = accessoryFolders && folder !== 'todos'
@@ -351,11 +352,11 @@ function CatalogSection({ id, title, icon, items, emptyText, accessoryFolders = 
         <div className="catalog-grid">
           {visibleItems.map(producto => (
             <article key={producto.id} className="catalog-card">
-              <div className="catalog-image-wrap" style={{ display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory' }}>
-                {(producto.imagenes_urls?.length || producto.imagen_url)
-                  ? (producto.imagenes_urls?.length ? producto.imagenes_urls : [producto.imagen_url]).map((url, index) => <img key={url} src={url} alt={`${producto.nombre} · Foto ${index + 1}`} className="catalog-image" style={{ flex: '0 0 100%', width: '100%', scrollSnapAlign: 'start' }} />)
-                  : <span className="catalog-placeholder">Sin foto</span>}
-              </div>
+              {producto.categoria === 'celular' ? <button type="button" className="phone-card-button" onClick={() => setSelectedPhone(producto)}>
+                <ProductGallery producto={producto} preview />
+                <div className="catalog-card-body"><h3>{producto.nombre}</h3><span>Batería: {producto.detalles?.bateria ? `${producto.detalles.bateria}%` : 'Consultar'}</span><span>{producto.detalles?.gb ? `${producto.detalles.gb} GB` : 'Capacidad a consultar'}</span></div>
+              </button> : <>
+              <ProductGallery producto={producto} />
               <div className="catalog-card-body">
                 <h3>{producto.nombre}</h3>
                 <strong>{producto.moneda || 'ARS'} ${Number(producto.precio || 0).toLocaleString('es-AR')}</strong>
@@ -363,12 +364,46 @@ function CatalogSection({ id, title, icon, items, emptyText, accessoryFolders = 
                   {producto.stock > 0 ? 'Disponible' : 'Consultar disponibilidad'}
                 </span>
               </div>
+              </>}
             </article>
           ))}
         </div>
       )}
+      {selectedPhone && <PhoneDetails producto={selectedPhone} onClose={() => setSelectedPhone(null)} />}
     </section>
   )
+}
+
+function ProductGallery({ producto, preview = false }) {
+  const images = producto.imagenes_urls?.length ? producto.imagenes_urls : producto.imagen_url ? [producto.imagen_url] : []
+  const [selected, setSelected] = useState(0)
+  const index = Math.min(selected, Math.max(0, images.length - 1))
+  function move(delta) { setSelected((index + delta + images.length) % images.length) }
+  return <div className="catalog-image-wrap">
+    {images.length ? <img src={images[index]} alt={`${producto.nombre} · Foto ${index + 1}`} className="catalog-image" loading="lazy" /> : <span className="catalog-placeholder">Sin foto</span>}
+    {!preview && images.length > 1 && <>
+      <button type="button" className="gallery-arrow gallery-arrow-prev" aria-label={`Foto anterior de ${producto.nombre}`} onClick={() => move(-1)}>‹</button>
+      <button type="button" className="gallery-arrow gallery-arrow-next" aria-label={`Foto siguiente de ${producto.nombre}`} onClick={() => move(1)}>›</button>
+      <span className="gallery-counter" aria-live="polite">{index + 1} / {images.length}</span>
+    </>}
+  </div>
+}
+
+function PhoneDetails({ producto, onClose }) {
+  const dialog = useRef(null)
+  useEffect(() => { dialog.current.showModal() }, [])
+  const details = producto.detalles || {}
+  return <dialog ref={dialog} className="phone-details" onCancel={onClose} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+    <button type="button" className="btn btn-secondary" autoFocus onClick={onClose}>Cerrar ✕</button>
+    <h2>{producto.nombre}</h2><ProductGallery producto={producto} />
+    <p>{details.estado === 'nuevo' ? 'Nuevo' : 'Usado'}</p>
+    <p>Capacidad: {details.gb ? `${details.gb} GB` : 'Consultar'}</p>
+    <p>Salud de batería: {details.bateria ? `${details.bateria}%` : 'Consultar'}</p>
+    {details.color && <p>Color: {details.color}</p>}
+    <p style={{ whiteSpace: 'pre-wrap' }}>{details.descripcion || 'Consultanos para más información.'}</p>
+    <strong>{producto.moneda || 'ARS'} ${Number(producto.precio || 0).toLocaleString('es-AR')}</strong>
+    <p>{producto.stock > 0 ? 'Disponible' : 'Consultar disponibilidad'}</p>
+  </dialog>
 }
 
 function AppleUsIcon() {
