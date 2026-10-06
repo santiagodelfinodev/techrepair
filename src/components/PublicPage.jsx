@@ -62,7 +62,7 @@ export default function PublicPage({ onLoginClick }) {
     window.addEventListener('hashchange', syncVista)
     supabase
       .from('productos')
-      .select('id, nombre, categoria, subcategoria, precio, stock, imagen_url')
+      .select('id, nombre, categoria, subcategoria, precio, moneda, stock, imagen_url')
       .eq('activo', true)
       .in('categoria', ['celular', 'accesorio'])
       .order('created_at', { ascending: false })
@@ -358,7 +358,7 @@ function CatalogSection({ id, title, icon, items, emptyText, accessoryFolders = 
               </div>
               <div className="catalog-card-body">
                 <h3>{producto.nombre}</h3>
-                <strong>${Number(producto.precio || 0).toLocaleString('es-AR')}</strong>
+                <strong>{producto.moneda || 'ARS'} ${Number(producto.precio || 0).toLocaleString('es-AR')}</strong>
                 <span className={producto.stock > 0 ? 'catalog-stock' : 'catalog-out-of-stock'}>
                   {producto.stock > 0 ? 'Disponible' : 'Consultar disponibilidad'}
                 </span>

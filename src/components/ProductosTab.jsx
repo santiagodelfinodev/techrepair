@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../supabase.js'
 
-const EMPTY = { nombre: '', categoria: 'celular', subcategoria: 'extras', precio: '', stock: '', min_stock: '', imagen_url: '' }
+const EMPTY = { nombre: '', categoria: 'celular', subcategoria: 'extras', precio: '', moneda: 'ARS', costo: '', costo_moneda: 'ARS', stock: '', min_stock: '', imagen_url: '' }
 
 export default function ProductosTab({ productos, onRefresh }) {
   const [modal, setModal]     = useState(false)
@@ -16,8 +16,12 @@ export default function ProductosTab({ productos, onRefresh }) {
     setForm(EMPTY); setEditId(null); setError(''); setModal(true)
   }
   function openEdit(p) {
-    setForm({ ...p, precio: String(p.precio), stock: String(p.stock), min_stock: String(p.min_stock) })
+    setForm({ ...EMPTY, ...p, precio: String(p.precio ?? ''), costo: String(p.costo ?? ''), stock: String(p.stock ?? ''), min_stock: String(p.min_stock ?? '') })
     setEditId(p.id); setError(''); setModal(true)
+  }
+  function openClone(p) {
+    setForm({ ...EMPTY, ...p, nombre: `${p.nombre} (copia)`, precio: String(p.precio ?? ''), costo: String(p.costo ?? ''), stock: String(p.stock ?? ''), min_stock: String(p.min_stock ?? '') })
+    setEditId(null); setError(''); setModal(true)
   }
   function closeModal() { setModal(false) }
 
@@ -29,6 +33,9 @@ export default function ProductosTab({ productos, onRefresh }) {
       categoria:   form.categoria,
       subcategoria: form.categoria === 'accesorio' ? form.subcategoria : null,
       precio:      Number(form.precio) || 0,
+      moneda:      form.moneda || 'ARS',
+      costo:       Number(form.costo) || 0,
+      costo_moneda: form.costo_moneda || 'ARS',
       stock:       Number(form.stock) || 0,
       min_stock:   Number(form.min_stock) || 0,
       imagen_url:  form.imagen_url || null,
@@ -91,6 +98,7 @@ export default function ProductosTab({ productos, onRefresh }) {
               <th>Nombre</th>
               <th>Categoría</th>
               <th>Precio</th>
+              <th>Costo de compra</th>
               <th>Stock</th>
               <th>Estado</th>
               <th>Acciones</th>
@@ -98,7 +106,7 @@ export default function ProductosTab({ productos, onRefresh }) {
           </thead>
           <tbody>
             {list.length === 0 && (
-              <tr><td colSpan={6} style={{ textAlign: 'center', color: '#6b6b8a', padding: 32 }}>No hay productos</td></tr>
+              <tr><td colSpan={7} style={{ textAlign: 'center', color: '#6b6b8a', padding: 32 }}>No hay productos</td></tr>
             )}
             {list.map(p => (
               <tr key={p.id}>
@@ -114,8 +122,9 @@ export default function ProductosTab({ productos, onRefresh }) {
                   </span>
                 </td>
                 <td style={{ fontWeight: 700, color: '#7B2FBE' }}>
-                  ${p.precio.toLocaleString('es-AR')}
+                  {p.moneda || 'ARS'} ${Number(p.precio || 0).toLocaleString('es-AR')}
                 </td>
+                <td>{p.costo_moneda || 'ARS'} ${Number(p.costo || 0).toLocaleString('es-AR')}</td>
                 <td>
                   <div className="stock-ctrl">
                     <button className="stock-btn" onClick={() => changeStock(p.id, -1)}>−</button>
@@ -135,6 +144,7 @@ export default function ProductosTab({ productos, onRefresh }) {
                 <td>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button className="btn btn-secondary btn-sm" onClick={() => openEdit(p)}>Editar</button>
+                    <button className="btn btn-secondary btn-sm" onClick={() => openClone(p)}>Clonar</button>
                     <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p.id)}>✕</button>
                   </div>
                 </td>
@@ -173,10 +183,13 @@ export default function ProductosTab({ productos, onRefresh }) {
                   </select>
                 </div>
               )}
-              <div>
-                <label className="label">Precio (ARS)</label>
-                <input className="input" type="number" min="0" value={form.precio}
-                  onChange={e => setForm(f => ({ ...f, precio: e.target.value }))} placeholder="0" />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 12 }}>
+                <div><label className="label">Precio de venta</label><input className="input" type="number" min="0" value={form.precio} onChange={e => setForm(f => ({ ...f, precio: e.target.value }))} placeholder="0" /></div>
+                <div><label className="label">Moneda</label><select className="input" value={form.moneda || 'ARS'} onChange={e => setForm(f => ({ ...f, moneda: e.target.value }))}><option value="ARS">ARS</option><option value="USD">USD</option></select></div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 12 }}>
+                <div><label className="label">Costo de compra</label><input className="input" type="number" min="0" value={form.costo} onChange={e => setForm(f => ({ ...f, costo: e.target.value }))} placeholder="0" /></div>
+                <div><label className="label">Moneda</label><select className="input" value={form.costo_moneda || 'ARS'} onChange={e => setForm(f => ({ ...f, costo_moneda: e.target.value }))}><option value="ARS">ARS</option><option value="USD">USD</option></select></div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
@@ -191,9 +204,9 @@ export default function ProductosTab({ productos, onRefresh }) {
                 </div>
               </div>
               <div>
-                <label className="label">URL de imagen (opcional)</label>
-                <input className="input" value={form.imagen_url || ''} placeholder="https://…"
-                  onChange={e => setForm(f => ({ ...f, imagen_url: e.target.value }))} />
+                <label className="label">Foto del producto (opcional)</label>
+                <input className="input" type="file" accept="image/*" onChange={async e => { const file = e.target.files?.[0]; if (!file) return; if (file.size > 5 * 1024 * 1024) { setError('La imagen no puede superar 5 MB'); return }; setSaving(true); const path = `${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '')}`; const { error: uploadError } = await supabase.storage.from('product-images').upload(path, file, { upsert: true }); if (uploadError) { setError(`No se pudo subir la imagen: ${uploadError.message}`); setSaving(false); return }; const { data } = supabase.storage.from('product-images').getPublicUrl(path); setForm(f => ({ ...f, imagen_url: data.publicUrl })); setSaving(false) }} />
+                {form.imagen_url && <img src={form.imagen_url} alt="Vista previa" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, marginTop: 8 }} />}
               </div>
               {error && <div className="alert alert-error">{error}</div>}
               <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>

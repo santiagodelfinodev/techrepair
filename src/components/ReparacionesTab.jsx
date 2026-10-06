@@ -1,134 +1,27 @@
 import { useState } from 'react'
 import { supabase } from '../supabase.js'
 
-const EMPTY = { nombre: '', categoria: 'modulos', precio: '', disponible: true }
+const EMPTY = { nombre: 'Módulo / pantalla', categoria: 'modulos', modelo: '', calidad: '', precio: '', moneda: 'USD' }
+const folders = [['modulos', '📱', 'Módulos / pantallas'], ['baterias', '🔋', 'Baterías'], ['tapas', '📲', 'Tapas'], ['vidrio_camara', '📷', 'Vidrio de cámara']]
 
 export default function ReparacionesTab({ reparaciones, onRefresh }) {
-  const [modal, setModal]   = useState(false)
-  const [form, setForm]     = useState(EMPTY)
-  const [editId, setEditId] = useState(null)
-  const [saving, setSaving] = useState(false)
-  const [error, setError]   = useState('')
-  const [folder, setFolder] = useState(null)
-
-  function openAdd() { setForm(EMPTY); setEditId(null); setError(''); setModal(true) }
-  function openEdit(r) {
-    setForm({ ...r, precio: String(r.precio) })
-    setEditId(r.id); setError(''); setModal(true)
-  }
-
+  const [modal, setModal] = useState(false), [form, setForm] = useState(EMPTY), [editId, setEditId] = useState(null), [saving, setSaving] = useState(false), [error, setError] = useState(''), [folder, setFolder] = useState(null)
+  function openAdd() { setForm({ ...EMPTY }); setEditId(null); setError(''); setModal(true) }
+  function openEdit(r) { setForm({ ...EMPTY, ...r, precio: String(r.precio ?? '') }); setEditId(r.id); setError(''); setModal(true) }
+  function openClone(r) { setForm({ ...EMPTY, ...r, modelo: `${r.modelo || r.nombre} (copia)`, precio: String(r.precio ?? '') }); setEditId(null); setError(''); setModal(true) }
   async function handleSave() {
-    if (!form.nombre.trim()) { setError('El nombre es obligatorio'); return }
+    if (!form.modelo.trim()) return setError('El modelo es obligatorio')
+    if (!form.calidad.trim()) return setError('La calidad es obligatoria')
     setSaving(true); setError('')
-    const payload = { nombre: form.nombre.trim(), categoria: form.categoria, precio: Number(form.precio) || 0, disponible: form.disponible }
-    const { error } = editId
-      ? await supabase.from('reparaciones').update(payload).eq('id', editId)
-      : await supabase.from('reparaciones').insert(payload)
-    setSaving(false)
-    if (error) { setError(error.message); return }
-    setModal(false); onRefresh()
+    const payload = { nombre: form.nombre.trim() || 'Módulo / pantalla', categoria: form.categoria, modelo: form.modelo.trim(), calidad: form.calidad.trim(), precio: Number(form.precio) || 0, moneda: form.moneda || 'USD' }
+    const { error } = editId ? await supabase.from('reparaciones').update(payload).eq('id', editId) : await supabase.from('reparaciones').insert(payload)
+    setSaving(false); if (error) return setError(error.message); setModal(false); onRefresh()
   }
-
-  async function handleDelete(id) {
-    if (!confirm('¿Eliminar este servicio?')) return
-    await supabase.from('reparaciones').delete().eq('id', id)
-    onRefresh()
-  }
-
-  async function toggleDisp(r) {
-    await supabase.from('reparaciones').update({ disponible: !r.disponible }).eq('id', r.id)
-    onRefresh()
-  }
-
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div><h2 style={{ fontWeight: 800, fontSize: 18 }}>Reparaciones</h2><p style={{ color: '#6b6b8a', fontSize: 13 }}>Elegí una carpeta para ver sus precios</p></div>
-        <button className="btn btn-primary" onClick={openAdd}>+ Agregar reparación</button>
-      </div>
-
-      {!folder ? <div className="repair-folders">{[['modulos','📱','Módulos'],['baterias','🔋','Baterías'],['tapas','📲','Tapas'],['vidrio_camara','📷','Vidrio de cámara']].map(([id, icon, label]) => <button key={id} className="repair-folder" onClick={() => setFolder(id)}><span>{icon}</span><strong>{label}</strong><small>{reparaciones.filter(r => (r.categoria || 'modulos') === id).length} precios</small></button>)}</div> : <>
-        <button className="btn btn-secondary btn-sm" onClick={() => setFolder(null)} style={{ marginBottom: 14 }}>← Todas las carpetas</button>
-
-      <div className="table-wrap" style={{ background: '#fff' }}>
-        <table>
-          <thead>
-            <tr>
-              <th>Servicio</th>
-              <th>Precio aprox.</th>
-              <th>Disponible</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {reparaciones.filter(r => (r.categoria || 'modulos') === folder).length === 0 && (
-              <tr><td colSpan={4} style={{ textAlign: 'center', color: '#6b6b8a', padding: 32 }}>No hay servicios</td></tr>
-            )}
-            {reparaciones.filter(r => (r.categoria || 'modulos') === folder).map(r => (
-              <tr key={r.id}>
-                <td style={{ fontWeight: 700 }}>{r.nombre}</td>
-                <td style={{ fontWeight: 700, color: '#7B2FBE' }}>${r.precio.toLocaleString('es-AR')}</td>
-                <td>
-                  <button
-                    onClick={() => toggleDisp(r)}
-                    style={{
-                      background: r.disponible ? '#dcfce7' : '#fee2e2',
-                      color: r.disponible ? '#15803d' : '#dc2626',
-                      border: 'none', padding: '5px 14px', borderRadius: 8,
-                      fontWeight: 700, fontSize: 12, cursor: 'pointer'
-                    }}>
-                    {r.disponible ? '✓ Sí' : '✗ No'}
-                  </button>
-                </td>
-                <td>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button className="btn btn-secondary btn-sm" onClick={() => openEdit(r)}>Editar</button>
-                    <button className="btn btn-danger btn-sm" onClick={() => handleDelete(r.id)}>✕</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div></>}
-
-      {modal && (
-        <div className="overlay" onClick={() => setModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h3>{editId ? 'Editar servicio' : 'Nuevo servicio'}</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div>
-                <label className="label">Carpeta</label>
-                <select className="input" value={form.categoria || 'modulos'} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))}><option value="modulos">Módulos</option><option value="baterias">Baterías</option><option value="tapas">Tapas</option><option value="vidrio_camara">Vidrio de cámara</option></select>
-              </div>
-              <div>
-                <label className="label">Nombre del servicio</label>
-                <input className="input" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
-              </div>
-              <div>
-                <label className="label">Precio aproximado (ARS)</label>
-                <input className="input" type="number" min="0" value={form.precio}
-                  onChange={e => setForm(f => ({ ...f, precio: e.target.value }))} placeholder="0" />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <input type="checkbox" id="disp" checked={form.disponible}
-                  onChange={e => setForm(f => ({ ...f, disponible: e.target.checked }))}
-                  style={{ width: 18, height: 18, accentColor: '#9b3dff' }} />
-                <label htmlFor="disp" style={{ fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-                  Servicio disponible actualmente
-                </label>
-              </div>
-              {error && <div className="alert alert-error">{error}</div>}
-              <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-                <button className="btn btn-primary" style={{ flex: 1, padding: 12 }} onClick={handleSave} disabled={saving}>
-                  {saving ? 'Guardando…' : (editId ? 'Guardar cambios' : 'Agregar servicio')}
-                </button>
-                <button className="btn btn-secondary" style={{ flex: 1, padding: 12 }} onClick={() => setModal(false)}>Cancelar</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
+  async function handleDelete(id) { if (!confirm('¿Eliminar este servicio?')) return; await supabase.from('reparaciones').delete().eq('id', id); onRefresh() }
+  const current = reparaciones.filter(r => (r.categoria || 'modulos') === folder)
+  return <div>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}><div><h2 style={{ fontWeight: 800, fontSize: 18 }}>Reparaciones</h2><p style={{ color: '#6b6b8a', fontSize: 13 }}>Modelo, calidad y precio del servicio</p></div><button className="btn btn-primary" onClick={openAdd}>+ Agregar reparación</button></div>
+    {!folder ? <div className="repair-folders">{folders.map(([id, icon, label]) => <button key={id} className="repair-folder" onClick={() => setFolder(id)}><span>{icon}</span><strong>{label}</strong><small>{reparaciones.filter(r => (r.categoria || 'modulos') === id).length} precios</small></button>)}</div> : <><button className="btn btn-secondary btn-sm" onClick={() => setFolder(null)} style={{ marginBottom: 14 }}>← Todas las carpetas</button><div className="table-wrap" style={{ background: '#fff' }}><table><thead><tr><th>Modelo</th><th>Calidad</th><th>Precio</th><th>Acciones</th></tr></thead><tbody>{current.length === 0 && <tr><td colSpan={4} style={{ textAlign: 'center', color: '#6b6b8a', padding: 32 }}>No hay servicios</td></tr>}{current.map(r => <tr key={r.id}><td style={{ fontWeight: 700 }}>{r.modelo || 'Sin modelo asignado'}</td><td>{r.calidad || '—'}</td><td style={{ fontWeight: 700, color: '#7B2FBE' }}>{r.moneda || 'ARS'} ${Number(r.precio || 0).toLocaleString('es-AR')}</td><td><button className="btn btn-secondary btn-sm" onClick={() => openEdit(r)}>Editar</button> <button className="btn btn-secondary btn-sm" onClick={() => openClone(r)}>Clonar</button> <button className="btn btn-danger btn-sm" onClick={() => handleDelete(r.id)}>✕</button></td></tr>)}</tbody></table></div></>}
+    {modal && <div className="overlay" onClick={() => setModal(false)}><div className="modal" onClick={e => e.stopPropagation()}><h3>{editId ? 'Editar servicio' : 'Nuevo servicio'}</h3><div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}><div><label className="label">Categoría</label><select className="input" value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))}>{folders.map(([id, , label]) => <option key={id} value={id}>{label}</option>)}</select></div><div><label className="label">Servicio</label><input className="input" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} /></div><div><label className="label">Modelo de celular</label><input className="input" value={form.modelo} onChange={e => setForm(f => ({ ...f, modelo: e.target.value }))} placeholder="iPhone 13 Pro Max" /></div><div><label className="label">Calidad</label><input className="input" value={form.calidad} onChange={e => setForm(f => ({ ...f, calidad: e.target.value }))} placeholder="Original, Gold, Black…" /></div><div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 12 }}><div><label className="label">Precio</label><input className="input" type="number" min="0" value={form.precio} onChange={e => setForm(f => ({ ...f, precio: e.target.value }))} /></div><div><label className="label">Moneda</label><select className="input" value={form.moneda || 'USD'} onChange={e => setForm(f => ({ ...f, moneda: e.target.value }))}><option value="USD">USD</option><option value="ARS">ARS</option></select></div></div>{error && <div className="alert alert-error">{error}</div>}<div style={{ display: 'flex', gap: 10, marginTop: 4 }}><button className="btn btn-primary" style={{ flex: 1, padding: 12 }} onClick={handleSave} disabled={saving}>{saving ? 'Guardando…' : (editId ? 'Guardar cambios' : 'Agregar servicio')}</button><button className="btn btn-secondary" style={{ flex: 1, padding: 12 }} onClick={() => setModal(false)}>Cancelar</button></div></div></div></div>}
+  </div>
 }
