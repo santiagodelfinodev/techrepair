@@ -7,4 +7,6 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 // ──────────────────────────────────────────────────────────────────────────────
 
+// Capture the link type before the auth client consumes its URL fragment.
+export const passwordSetupRequested = ['invite', 'recovery'].includes(new URLSearchParams(window.location.hash.slice(1)).get('type'))
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)

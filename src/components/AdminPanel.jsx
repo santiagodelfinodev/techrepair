@@ -8,7 +8,7 @@ import ClientesTab from './ClientesTab.jsx'
 import VentasTab from './VentasTab.jsx'
 import GananciasTab from './GananciasTab.jsx'
 
-export default function AdminPanel({ onLogout }) {
+export default function AdminPanel({ onLogout, onPasswordChange }) {
   const [tab, setTab] = useState('productos')
   const [productos, setProductos]       = useState([])
   const [reparaciones, setReparaciones] = useState([])
@@ -65,6 +65,7 @@ export default function AdminPanel({ onLogout }) {
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <button className="btn btn-ghost btn-sm" onClick={fetchAll}>↻ Actualizar</button>
           <button className="btn btn-ghost btn-sm" onClick={onLogout}>Cerrar sesión</button>
+          <button className="btn btn-ghost btn-sm" onClick={onPasswordChange}>Mi contraseña</button>
         </div>
       </div>
 
